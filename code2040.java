@@ -80,9 +80,7 @@ public class code2040 {
         try{
             URL url = new URL(target);
             connection = (HttpURLConnection)url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("email", "caraha@stanford.edu");
-            connection.setRequestProperty("github", 
+            connection.setRequestMethod("POST"); 
         }
     }
 }
