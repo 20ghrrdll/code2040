@@ -1,93 +1,144 @@
 import java.util.*;
 import java.net.*;
 import java.io.*;
+import java.text.*;
 
 public class code2040 {
     
     public static void main(String[] args) {
+        //send in initial info
         Map<String, Object> requests = new HashMap<String, Object>();
         requests.put("email", "caraha@stanford.edu");
         requests.put("github", "https://github.com/20ghrrdll/code2040");
+        //get response and extract id
         JSONObject result = getToken("http://challenge.code2040.org/api/register",requests);
         Map<String, Object> receivedInfo = extractValue(result);
+        //complete challenges
         String Identifier = (String)receivedInfo.get("result");
-        Map<String, Object> postToken = new HashMap<String, Object>();
-        postToken.put("token", Identifier);
-        result = getToken("http://challenge.code2040.org/api/getstring", postToken);
-        receivedInfo = extractValue(result);
-        String toReverse = (String)receivedInfo.get("result");
-        requests.clear();
-        requests.put("token", Identifier);
-        requests.put("string", flipString(toReverse));
-        getToken("http://challenge.code2040.org/api/validatestring", requests);
-        result = getToken("http://challenge.code2040.org/api/haystack", postToken);
-        receivedInfo = extractValue(result);
-        Map<String,Object> extracted = (Map<String,Object>)receivedInfo.get("result");
-        String needle = (String)extracted.get("needle");
-        ArrayList<String> haystack = (ArrayList<String>)extracted.get("haystack");
-        requests.remove("string");
-        requests.put("needle", findNeedle(needle, haystack));
-        getToken("http://challenge.code2040.org/api/validateneedle", requests);
-        result = getToken("http://challenge.code2040.org/api/prefix", postToken);
-        receivedInfo = extractValue(result);
-        extracted = (Map<String, Object>)receivedInfo.get("result");
-        String prefix = (String)extracted.get("prefix");
-        ArrayList<String> array = (ArrayList<String>)extracted.get("array");
-        requests.remove("needle");
-        requests.put("array", startsWith(prefix, array));
-        getToken("http://challenge.code2040.org/api/validateprefix", requests);
+        flipString(Identifier);
+        findNeedle(Identifier);
+        startsWith(Identifier);
+        secondDateStamp(Identifier);//computes correct date, does not send to server for validation
     }
     
-    private static String flipString(final String toReverse){
+    private static void flipString(String id){
+        Map<String, Object> requests = new HashMap<String, Object>();
+        requests.put("token", id);
+        JSONObject result = getToken("http://challenge.code2040.org/api/getstring", requests);
+        Map<String, Object> receivedInfo = extractValue(result);
+        String toReverse = (String)receivedInfo.get("result");
         String toReturn = "";
         char[] flipFlop = toReverse.toCharArray();
         for(int a = 0; a < toReverse.length(); a++){
             toReturn+=flipFlop[toReverse.length()-1-a];
         }
-        return toReturn;
+        requests.put("string", toReturn);
+        getToken("http://challenge.code2040.org/api/validatestring", requests);
     }
     
-    private static int findNeedle(final String needle, final ArrayList<String> haystack){
+    private static void findNeedle(String id){
+        Map<String, Object> requests = new HashMap<String, Object>();
+        requests.put("token", id);
+        JSONObject result = getToken("http://challenge.code2040.org/api/haystack", requests);
+        Map<String, Object> receivedInfo = extractValue(result);
+        Map<String,Object> extracted = (Map<String,Object>)receivedInfo.get("result");
+        String needle = (String)extracted.get("needle");
+        ArrayList<String> haystack = (ArrayList<String>)extracted.get("haystack");
         int location = 0;
         for(String straw: haystack){
-            if(straw.equals(needle)){
-                return location;
-            }
-            else{
+            if(!straw.equals(needle)){
                 location++;
+                break;
             }
         }
-        return -1;
+        requests.put("needle", location);
+        getToken("http://challenge.code2040.org/api/validateneedle", requests);
     }
     
-    private static String[] startsWith(final String prefix, final ArrayList<String> array){
-        String[] results = new String[10];
-        int size = 0;
-        int capacity = 10;
-        for(String potential: array){
-            if(!potential.startsWith(prefix)){
-                if(size < capacity){
-                    results[size] = potential;
-                    size++;
-                }
-                else{
-                    String[] temp = new String[capacity*2];
-                    for(int a = 0; a < capacity; a++){
-                        temp[a] = results[a];
-                    }
-                    capacity*=2;
-                    results = temp;
-                }
+    private static void startsWith(String id){
+        Map<String, Object> requests = new HashMap<String, Object>();
+        requests.put("token", id);
+        JSONObject result = getToken("http://challenge.code2040.org/api/prefix", requests);
+        Map<String, Object>receivedInfo = extractValue(result);
+        Map<String, Object>extracted = (Map<String, Object>)receivedInfo.get("result");
+        String prefix = (String)extracted.get("prefix");
+        ArrayList<String> array = (ArrayList<String>)extracted.get("array");
+        int originalSize = array.size();
+        for(int a = 0; a < originalSize; a++){
+            String temp = array.get(a);
+            if(temp.startsWith(prefix)){
+                array.remove(temp);
+                originalSize--;
             }
         }
-        String[] toReturn = new String[size];
-        for(int a = 0; a < size; a ++){
-            toReturn[a] = results[a];
+        String[] toReturn = new String[array.size()];
+        for(int a = 0; a < array.size(); a ++){
+            toReturn[a] = array.get(a);
+        }
+        requests.put("array", toReturn);
+        getToken("http://challenge.code2040.org/api/validateprefix", requests);
+    }
+    
+    private static void secondDateStamp(String id){
+        Map<String, Object> requests = new HashMap<String, Object>();
+        requests.put("token", id);
+        JSONObject result = getToken("http://challenge.code2040.org/api/time", requests);
+        Map<String, Object> receivedInfo = extractValue(result);
+        Map<String, Object>extracted = (Map<String, Object>)receivedInfo.get("result");
+        String datestamp = (String)extracted.get("datestamp");
+        int interval = (int)extracted.get("interval");
+        Calendar toAlter = dateParser(datestamp);
+        toAlter.set(13, interval+toAlter.get(13));
+        DateFormat process = DateFormat.getDateInstance(DateFormat.SHORT);
+        String newDate = reassemble(toAlter);
+        requests.put("datestamp", newDate);
+        getToken("http://challenge.code2040.org/api/validatetime", requests);
+    }
+    
+    private static Calendar dateParser(String date){
+        int year = Integer.parseInt(date.substring(0, 4));
+        int month = Integer.parseInt(date.substring(5,7));
+        int day = Integer.parseInt(date.substring(9,10));
+        int hour = Integer.parseInt(date.substring(12,13));
+        int min = Integer.parseInt(date.substring(15,16));
+        int sec = Integer.parseInt(date.substring(18,19));
+        Calendar result = Calendar.getInstance();
+        result.set(year, month, day, hour, min, sec);
+        result.setLenient(true);
+        return result;
+    }
+    
+    private static String reassemble(Calendar date){
+        String toReturn =  date.get(1)+"-";
+        if(date.get(2) < 10){
+            toReturn+="0"+date.get(2)+"-";
+        }else{
+            toReturn+=date.get(2)+"-";
+        }
+        if(date.get(5) < 10){
+            toReturn+="0"+date.get(5);
+        }else{
+            toReturn+=date.get(5);
+        }
+        toReturn +="T";
+        if(date.get(10) < 10){
+            toReturn+="0"+date.get(10)+":";
+        }else{
+            toReturn+=date.get(10)+":";
+        }
+        if(date.get(12) < 10){
+            toReturn+="0"+date.get(12)+":";
+        }else{
+            toReturn+=date.get(12)+":";
+        }
+        if(date.get(13) < 10){
+            toReturn+="0"+date.get(13)+".000Z";
+        }else{
+            toReturn+=date.get(13)+".000Z";
         }
         return toReturn;
     }
     
-    //I had never heard of "JSON" before this exercise. This method was by far the most exhaustive learning experience.
     private static JSONObject getToken(String target, Map<String, Object> dict){
         HttpURLConnection connection = null;
         String response = "";
@@ -172,10 +223,10 @@ public class code2040 {
     }
     
     /**
-     * Method extractValue returns the given JSONObject as a usable Map<String, Object> so the
-     * information can be read and processed by other methods
-     * @param json is the JSON object returned by the server
-     * @return The Map<String, Object>
+     * Method extractValue assumes that the value to be extracted is known to be a string.
+     *
+     * @param json A parameter
+     * @return The return value
      */
     private static Map<String, Object> extractValue(JSONObject json){
         Map<String, Object> toReturn = new HashMap<String, Object>();
@@ -185,7 +236,6 @@ public class code2040 {
             Object value = json.get(key);
             if(value instanceof JSONArray){
                 value = extractArray((JSONArray)value);
-                //System.out.println(value.toString());
             }
             else if(value instanceof JSONObject){
                 value = extractValue((JSONObject)value);
